@@ -1,0 +1,801 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RGB 모의 분광광도계</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<style>
+/* 레이아웃: 넓은 화면에서는 왼쪽에 사진, 오른쪽에 결과 표와 검정곡선이 한 화면에 보인다. 좁으면 한 열로 쌓인다. */
+:root {
+  --bg: #F2F2F8;
+  --surface: #FFFFFF;
+  --ink: #1B1A3A;
+  --muted: #5F5E7C;
+  --line: #D8D7E6;
+  --accent: #3A2FA8;        /* 아이오딘-녹말 복합체의 청람색 */
+  --accent-ink: #FFFFFF;
+  --amber: #A66A00;         /* 아이오딘 용액의 황갈색 */
+  --warn: #B3261E;
+  --stage: #0D0C1C;
+  --stage-ink: #FFFFFF;
+  --roi-ref: #FFC24A;
+  --sel: #E3E1F6;
+  --hl: #FFE066;            /* 제목 형광펜: 아이오딘 용액의 레몬색 */
+  --card-line: transparent;
+  --shadow: 0 1px 2px rgba(27, 26, 58, 0.06), 0 10px 28px rgba(27, 26, 58, 0.07);
+  --ch-r: #CF3F38; --ch-g: #23884A; --ch-b: #2F5FD0;
+  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111024; --surface: #1B1A34; --ink: #ECEBFA; --muted: #A5A4C4; --line: #34335A;
+    --accent: #948CFF; --accent-ink: #111024; --amber: #E8AD3F; --warn: #FF8A80;
+    --stage: #07060F; --stage-ink: #FFFFFF; --roi-ref: #FFC24A;
+    --sel: #2B2955; --ch-r: #FF7A72; --ch-g: #5FCB86; --ch-b: #7FA2FF;
+    --hl: #6A5600; --card-line: #34335A; --shadow: none;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111024; --surface: #1B1A34; --ink: #ECEBFA; --muted: #A5A4C4; --line: #34335A;
+  --accent: #948CFF; --accent-ink: #111024; --amber: #E8AD3F; --warn: #FF8A80;
+  --stage: #07060F; --stage-ink: #FFFFFF; --roi-ref: #FFC24A;
+    --sel: #2B2955; --ch-r: #FF7A72; --ch-g: #5FCB86; --ch-b: #7FA2FF;
+    --hl: #6A5600; --card-line: #34335A; --shadow: none;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+body {
+  background: var(--bg); color: var(--ink);
+  font-family: var(--font-body); font-size: 15px; line-height: 1.55;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 20px 48px;
+}
+.app { max-width: 680px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
+.cols, .col { display: flex; flex-direction: column; gap: 28px; min-width: 0; }
+@media (min-width: 900px) {
+  .app { max-width: 1160px; }
+  .cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px; align-items: start; }
+  .col.left { position: sticky; top: calc(env(safe-area-inset-top, 0px) + 12px); }
+  #cv { max-height: 46vh; }
+}
+header h1 { font-size: 24px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+header p { margin: 4px 0 0; color: var(--muted); max-width: 46em; }
+section { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+h2 { font-size: 17px; font-weight: 600; margin: 0; display: flex; gap: 8px; align-items: baseline; text-wrap: balance; }
+h2 .step { font-family: var(--font-num); font-size: 13px; color: var(--accent); font-weight: 500; }
+h3 { font-size: 14px; font-weight: 600; margin: 8px 0 0; }
+summary { list-style: none; cursor: pointer; display: flex; align-items: center; gap: 10px; min-height: 44px; border-radius: 8px; }
+summary::-webkit-details-marker { display: none; }
+summary::before { content: ""; width: 7px; height: 7px; border: solid var(--muted); border-width: 0 2px 2px 0; transform: rotate(-45deg); flex: none; margin-left: 3px; }
+details[open] > summary::before { transform: rotate(45deg); }
+summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fold { display: flex; flex-direction: column; gap: 12px; padding-top: 8px; min-width: 0; }
+.hint { color: var(--muted); font-size: 13.5px; margin: 0; }
+.msg { font-size: 13.5px; margin: 0; color: var(--warn); }
+.msg:empty { display: none; }
+.msg.ok { color: var(--accent); }
+#msgCam, #msgCam:empty { display: block; min-height: 1.55em; }      /* 문구가 바뀌어도 사진이 위아래로 밀리지 않게 */
+
+/* 버튼·입력 */
+.row { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; }
+button, .filebtn {
+  font: inherit; font-weight: 500; min-height: 44px; padding: 8px 16px; border-radius: 8px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; text-align: center;
+}
+.filebtn.primary, button.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+button.small { min-height: 32px; padding: 2px 10px; font-size: 13px; }
+button:focus-visible, .filebtn:focus-within, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.filebtn input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.filebtn { position: relative; }
+.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); min-width: 0; }
+.field input[type="text"], .field input[type="number"] {
+  font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line);
+  border-radius: 8px; min-height: 44px; padding: 6px 10px; width: 9.5em; max-width: 100%;
+}
+.seg { display: flex; flex-wrap: wrap; gap: 6px 18px; border: 0; padding: 0; margin: 0; font-size: 14px; }
+.seg legend { padding: 0; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+.seg label { display: flex; gap: 8px; align-items: center; min-height: 32px; cursor: pointer; }
+.seg input { width: 18px; height: 18px; margin: 0; accent-color: var(--accent); }
+
+/* 사진 창과 번호 원 */
+.stage { background: var(--stage); border-radius: 12px; overflow: hidden; display: flex; justify-content: center; position: relative; }
+.wrap { position: relative; display: inline-block; line-height: 0; max-width: 100%; }
+#cv { display: block; max-width: 100%; max-height: 58vh; cursor: crosshair; }
+#marks { position: absolute; inset: 0; pointer-events: none; }
+.mark {
+  position: absolute; pointer-events: auto; touch-action: none; cursor: grab; border-radius: 50%;
+  border: 2px solid var(--stage-ink); box-shadow: 0 0 0 1px var(--stage); line-height: 1;
+}
+.mark span {
+  position: absolute; left: 50%; bottom: -12px; transform: translateX(-50%); min-width: 22px; height: 22px; padding: 0 6px;
+  display: flex; align-items: center; justify-content: center; border-radius: 11px; white-space: nowrap; max-width: 9em; overflow: hidden; text-overflow: ellipsis;
+  background: var(--stage-ink); color: var(--stage); border: 1px solid var(--stage);
+  font-size: 12px; font-weight: 600;
+}
+.mark.sel { border-width: 4px; box-shadow: 0 0 0 2px var(--stage); }
+.mark.sel span { outline: 2px solid var(--stage-ink); }
+.mark.ref { border-color: var(--roi-ref); }
+/* 눈금선: 레몬색 — 남색 — 검정 한 줄 위에 내 용액의 위치 */
+.scale { display: flex; flex-direction: column; gap: 0; padding: 4px 12px 0; }
+.scale .ends { display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 600; margin-bottom: 26px; }
+.scale .arrow { flex: 1; height: 2px; background: var(--muted); position: relative; }
+.scale .arrow::before, .scale .arrow::after { content: ""; position: absolute; top: -4px; border: 5px solid transparent; }
+.scale .arrow::before { left: -1px; border-right-color: var(--muted); border-left-width: 0; }
+.scale .arrow::after { right: -1px; border-left-color: var(--muted); border-right-width: 0; }
+.scale .track { position: relative; height: 16px; border-radius: 8px; border: 1px solid var(--line); }
+.scale .dot {
+  position: absolute; top: 50%; transform: translate(-50%, -50%); width: 24px; height: 24px; min-height: 0; padding: 0;
+  border-radius: 50%; border: 2px solid var(--surface); box-shadow: 0 0 0 1.5px var(--ink);
+  font-family: var(--font-num); font-size: 11px; font-weight: 500; line-height: 1;
+}
+.scale .dot.sel { width: 30px; height: 30px; z-index: 2; box-shadow: 0 0 0 3px var(--accent); font-size: 13px; }
+.scale .dl { position: absolute; left: 50%; bottom: calc(100% + 6px); transform: translateX(-50%); white-space: nowrap; font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--ink); }
+.scale .ticks { position: relative; height: 46px; margin-top: 4px; }
+.scale .tick { position: absolute; top: 0; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; font-size: 11.5px; color: var(--muted); white-space: nowrap; line-height: 1.3; padding-top: 9px; }
+.scale .tick::before { content: ""; position: absolute; top: 0; left: 50%; width: 1.5px; height: 7px; background: var(--muted); }
+.scale .tick b { color: var(--ink); font-size: 13px; }
+.scale .tick.first { transform: none; align-items: flex-start; } .scale .tick.first::before { left: 0; }
+.scale .tick.last { transform: translateX(-100%); align-items: flex-end; } .scale .tick.last::before { left: auto; right: 0; }
+/* 색 읽기: 안내 색 사이에 고른 용액 */
+.rgbpanel { display: grid; grid-template-columns: repeat(auto-fit, minmax(118px, 1fr)); gap: 8px; }
+.rgbcard { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.rgbcard .nmx { overflow: hidden; text-overflow: ellipsis; }
+/* 표준 칸은 점선 테두리, 내 용액 칸은 보라색 실선, 고른 용액은 굵은 테두리와 옅은 바탕 */
+.rgbcard.guide { background: transparent; border: 1.5px dashed var(--muted); }
+.rgbcard.me { border: 1.5px solid var(--accent); }
+.rgbcard.me.sel { border-width: 3px; background: var(--sel); padding: 6.5px 8.5px; }
+.rgbcard[data-card] { cursor: pointer; }
+.rgbcard .tag { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 8px; margin-left: auto; flex: none; }
+.rgbcard.guide .tag { background: var(--line); color: var(--muted); }
+.rgbcard.me .tag { background: var(--accent); color: var(--accent-ink); }
+.rgbcard .rt { font-weight: 600; font-size: 13.5px; display: flex; gap: 6px; align-items: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.rgbcard .rt .sw { width: 16px; height: 16px; flex: none; }
+.rgbcard .rs { font-size: 12px; color: var(--muted); min-height: 2.6em; line-height: 1.3; }
+.rb { display: grid; grid-template-columns: 1em 1fr 2.2em; gap: 6px; align-items: center; font-family: var(--font-num); font-size: 12px; font-variant-numeric: tabular-nums; }
+.rb .bar { height: 8px; background: var(--bg); border-radius: 4px; overflow: hidden; }
+.rb .bar i { display: block; height: 100%; border-radius: 4px; }
+.rb .num { text-align: right; }
+.bR { background: var(--ch-r); } .bG { background: var(--ch-g); } .bB { background: var(--ch-b); }
+tr[data-row] { cursor: pointer; }
+tr.sel td { background: var(--sel); }
+.mark.ref span { background: var(--roi-ref); }
+.badge {
+  position: absolute; top: 10px; left: 10px; font-size: 12px; font-weight: 600; line-height: 1.2;
+  background: var(--roi-ref); color: var(--stage); padding: 4px 8px; border-radius: 4px;
+}
+.sizer { display: flex; gap: 10px; align-items: center; font-size: 13px; color: var(--muted); }
+.sizer input { flex: 1; min-width: 0; accent-color: var(--accent); }
+
+/* 표·그래프 */
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+th { font-weight: 500; color: var(--muted); font-size: 12.5px; }
+th:first-child, td:first-child, th.l, td.l { text-align: left; }
+td.empty { text-align: left; color: var(--muted); white-space: normal; }
+td.n { font-family: var(--font-num); font-variant-numeric: tabular-nums; }
+td.big { font-family: var(--font-num); font-variant-numeric: tabular-nums; font-weight: 500; color: var(--accent); font-size: 15px; }
+.sw { display: inline-block; width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--line); vertical-align: middle; }
+input.nm { font: inherit; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 6px; min-height: 32px; padding: 2px 8px; width: 7.5em; }
+.fit { font-family: var(--font-num); font-size: 13.5px; margin: 0; overflow-wrap: anywhere; white-space: pre-line; }
+#chart { width: 100%; height: auto; display: block; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; }
+#chart text { font-family: var(--font-num); font-size: 10px; fill: var(--muted); }
+#chart .ax { stroke: var(--muted); stroke-width: 1; fill: none; }
+#chart .grid { stroke: var(--line); stroke-width: 1; fill: none; }
+#chart .fitline { stroke: var(--accent); stroke-width: 2; fill: none; }
+#chart .std { fill: var(--accent); }
+#chart .cur { fill: var(--amber); stroke: var(--surface); stroke-width: 1; }
+#chart .curt { fill: var(--muted); font-size: 8.5px; }
+#chart .curt.sel { fill: var(--ink); font-size: 11px; font-weight: 600; font-family: var(--font-body); }
+#chart .cursel { fill: var(--amber); stroke: var(--ink); stroke-width: 2; }
+#chart .guide { stroke: var(--ink); stroke-width: 1; stroke-dasharray: 3 3; fill: none; }
+.legend { display: flex; gap: 16px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+.legend i { display: inline-block; width: 10px; height: 10px; margin-right: 5px; border-radius: 50%; }
+.legend .l1 { background: var(--accent); }
+.legend .l3 { background: var(--amber); }
+textarea { width: 100%; min-height: 120px; font-family: var(--font-num); font-size: 12px; color: var(--ink); background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 8px; }
+/* 화면 구성: 형광펜을 그은 제목 아래, 테두리 없이 옅은 그림자만 있는 흰 카드 */
+.app { gap: 20px; }
+.hero { padding: 8px 4px 0; }
+.hero h1 { font-size: 34px; font-weight: 600; letter-spacing: -0.02em; line-height: 1.3; }
+.hero h1 span { background: linear-gradient(transparent 56%, var(--hl) 56%, var(--hl) 92%, transparent 92%); padding: 0 8px; margin-left: -8px; }
+.hero p { margin-top: 8px; font-size: 15px; }
+.cols, .col { gap: 20px; }
+.panel { background: var(--surface); border: 1px solid var(--card-line); border-radius: 18px; padding: 20px 22px; gap: 14px; box-shadow: var(--shadow); }
+.panel > h2, h2.minor { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+button, .filebtn { border-radius: 10px; }
+button.small { border-color: transparent; background: var(--bg); }
+.stage { border-radius: 14px; }
+.panel .rgbcard.guide { border: 1.5px solid transparent; }
+.panel .rgbcard.me { background: var(--surface); }
+.scale .track { height: 22px; border-radius: 11px; }
+th { border-bottom-color: var(--ink); }
+.panel .sizer { flex: 1 1 10em; min-height: 44px; }
+.panel #chart { border: 0; border-radius: 0; max-height: 40vh; }
+.panel .rgbcard, .panel input.nm, .panel .field input { background: var(--bg); }
+.panel .rgbcard.me.sel { background: var(--sel); }
+.panel .rb .bar { background: var(--line); }
+#cv { max-height: 50vh; }
+@media (min-width: 900px) {
+  .app { max-width: 1280px; }
+  .cols { gap: 16px; }
+  .col.left { position: static; }
+  #cv { max-height: 36vh; }
+  .panel #chart { max-height: 36vh; }
+}
+ul.tips { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 13.5px; display: flex; flex-direction: column; gap: 4px; }
+</style>
+
+</head>
+<body>
+<div class="app">
+  <header class="hero">
+    <h1><span>RGB 모의 분광광도계</span></h1>
+    <p>아이오딘으로 발색시킨 녹말 용액 사진에서 색을 읽어 녹말 농도를 추정합니다.</p>
+  </header>
+
+  <div class="cols">
+    <div class="col left">
+      <section class="panel" aria-labelledby="h1s">
+        <h2 id="h1s">사진</h2>
+        <div class="row">
+          <label class="filebtn primary">사진 불러오기<input id="file" type="file" accept="image/*"></label>
+          <button id="btnManual" type="button">원 모두 지우기</button>
+          <label class="sizer" for="size">원 크기<input id="size" type="range" min="0.03" max="0.5" step="0.005"></label>
+        </div>
+        <p class="msg ok" id="msgCam" role="status"></p>
+        <div class="stage">
+          <div class="wrap" id="wrap">
+            <canvas id="cv" width="960" height="560"></canvas>
+            <div id="marks"></div>
+          </div>
+          <div class="badge" id="demoBadge">예시 화면</div>
+        </div>
+        <p class="hint">재려는 용액 한가운데를 누르면 번호 원이 생깁니다. 원은 끌어서 옮길 수 있습니다.</p>
+      </section>
+
+      <section class="panel" aria-labelledby="h4s">
+        <h2 id="h4s" class="minor">측정값</h2>
+        <div class="scroll"><table>
+          <thead id="resHead"></thead>
+          <tbody id="resBody"></tbody>
+        </table></div>
+        <p class="msg" id="msgRes" role="status"></p>
+        <div class="row">
+          <label class="field">분해 전 녹말 농도 (선택)<input id="c0" type="number" inputmode="decimal" min="0" step="any" placeholder="예: 0.1"></label>
+          <button id="btnCopy" type="button">결과를 표로 복사</button>
+        </div>
+        <p class="msg ok" id="msgOut" role="status"></p>
+        <textarea id="tsv" hidden readonly aria-label="복사할 결과"></textarea>
+      </section>
+    </div>
+
+    <div class="col right">
+      <section class="panel" aria-labelledby="h3s">
+        <h2 id="h3s">농도 그래프</h2>
+        <fieldset class="seg" aria-label="그래프에 보일 것">
+          <label><input type="radio" name="view" id="vBoth" value="both">표준과 함께 보기</label>
+          <label><input type="radio" name="view" id="vMine" value="mine">이 사진의 용액만 보기</label>
+        </fieldset>
+        <svg id="chart" viewBox="0 0 360 230" role="img" aria-label="검정곡선 그래프"></svg>
+        <div class="legend"><span id="lgStd"><i class="l1"></i>표준용액</span><span><i class="l3"></i>이 사진의 용액(번호)</span></div>
+        <p class="fit" id="fit"></p>
+      </section>
+
+      <section class="panel" aria-labelledby="h2s">
+        <h2 id="h2s">색 비교</h2>
+        <div class="scale" id="scale"></div>
+        <div class="rgbpanel" id="rgbPanel"></div>
+        <p class="hint">번호 점이 사진에서 누른 용액의 위치입니다. 점을 누르면 아래 칸에 그 용액의 R·G·B 값이 나옵니다.</p>
+      </section>
+    </div>
+  </div>
+
+  <section aria-labelledby="h7s">
+    <details><summary><h2 id="h7s" class="minor">읽는 법과 촬영 요령</h2></summary><div class="fold">
+      <ul class="tips">
+        <li>흡광도는 기준 용액보다 얼마나 어두운지를 나타내는 값으로, 사진의 빨강(R) 값으로 계산합니다. 녹말이 진할수록 레몬색에서 남색, 검정 쪽으로 가면서 R·G·B가 모두 내려갑니다.</li>
+        <li>사진에 0% 기준 용액이 함께 있으면 측정값 표에서 그 줄의 「기준으로」를 누르세요. 없으면 저장된 기준 색으로 계산하며, 조명이 표준 사진과 다르면 오차가 큽니다.</li>
+        <li>「약」은 거의 검게 보이는 진한 구간이라 오차가 크다는 뜻, 「≥」는 가장 진한 표준보다도 진하다는 뜻, * 는 원 안의 색이 고르지 않다는 뜻입니다.</li>
+        <li>분해 전 농도를 넣으면 표에 분해율이 함께 나옵니다. 분해율 = (1 − 추정 농도 ÷ 분해 전 농도) × 100</li>
+        <li>표준 색상을 찍을 때와 같은 컵, 같은 양, 같은 아이오딘 방울 수로 맞추고, 그림자나 반사가 없게 위에서 찍습니다.</li>
+        <li>플래시, HDR, 필터는 끄고, 찍은 사진은 보정하지 않고 그대로 올립니다. 원은 용액 밖으로 나가지 않게 크기를 맞춥니다.</li>
+      </ul>
+    </div></details>
+  </section>
+
+  <section aria-labelledby="h5s">
+    <details id="stdFold"><summary><h2 id="h5s" class="minor">표준 색상과 설정</h2></summary><div class="fold">
+      <p class="hint">농도 계산의 기준이 되는 표준 색상입니다. 종이컵 사진(녹말 0, 0.005, 0.01, 0.05, 0.1, 0.2, 0.5, 1%)에서 잰 값이 기본으로 들어 있어, 평소에는 바꿀 필요가 없습니다.</p>
+      <div class="scroll"><table>
+        <thead><tr><th>색</th><th id="thStdC">농도</th><th>흡광도</th><th></th></tr></thead>
+        <tbody id="stdBody"></tbody>
+      </table></div>
+      <h3>표준 색상 새로 등록</h3>
+      <p class="hint">표준용액 사진을 올리고 원을 찍은 다음, 원 번호 순서대로 농도를 적습니다. 표준에 넣지 않을 원은 - 로 적습니다.</p>
+      <div class="row">
+        <label class="field" style="flex:1 1 14em">원 번호 순서대로 농도 (쉼표로 구분)<input id="bulkConc" type="text" style="width:100%" placeholder="예: 0, 0.005, 0.01, 0.05"></label>
+        <button id="btnBulk" type="button">기존 표준을 지우고 등록</button>
+        <button id="btnBulkAdd" type="button">기존 표준에 추가</button>
+      </div>
+      <p class="msg" id="msgStd" role="status"></p>
+      <h3>계산 설정</h3>
+      <fieldset class="seg">
+        <legend>농도 추정 방식</legend>
+        <label><input type="radio" name="method" id="mInt" value="interp">표준 점 잇기 (권장, 가장 정확)</label>
+        <label><input type="radio" name="method" id="mSat" value="sat">직선 하나 후 포화</label>
+        <label><input type="radio" name="method" id="mLin" value="linear">직선만</label>
+      </fieldset>
+      <fieldset class="seg">
+        <legend>흡광도를 계산할 색 채널</legend>
+        <label><input type="radio" name="ch" id="chR" value="r">빨강 R (권장)</label>
+        <label><input type="radio" name="ch" id="chG" value="g">초록 G</label>
+        <label><input type="radio" name="ch" id="chB" value="b">파랑 B</label>
+      </fieldset>
+      <label class="field">농도 단위<input id="unit" type="text" maxlength="8" style="width:5em"></label>
+      <div class="row">
+        <button id="btnDef" type="button">기본 표준 색상으로 되돌리기</button>
+        <button id="btnExp" type="button">표준 색상 코드 복사</button>
+        <button id="btnImp" type="button">코드로 가져오기</button>
+      </div>
+      <div id="impBox" hidden>
+        <textarea id="imp" aria-label="표준 색상 코드" placeholder="다른 기기에서 복사한 표준 색상 코드를 붙여 넣으세요"></textarea>
+        <div class="row" style="margin-top:8px"><button id="btnImpGo" class="primary" type="button">이 코드로 바꾸기</button></div>
+      </div>
+      <p class="msg ok" id="msgExp" role="status"></p>
+    </div></details>
+  </section>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const KEY = 'starch-photometer-v3';
+  const CH = ['r', 'g', 'b'], CHNAME = { r: 'R', g: 'G', b: 'B' };
+  const METHODS = ['sat', 'interp', 'linear'], METHOD_ID = { sat: 'mSat', interp: 'mInt', linear: 'mLin' };
+  const LUT = new Float32Array(256);
+  for (let i = 0; i < 256; i++) { const c = i / 255; LUT[i] = c <= 0.04045 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4); }
+  const toSRGB = v => Math.round(255 * (v <= 0.0031308 ? v * 12.92 : 1.055 * Math.pow(v, 1 / 2.4) - 0.055));
+  const clamp = (v, a, b) => Math.min(b, Math.max(a, v));
+  const fmt = (v, d) => (typeof v === 'number' && isFinite(v)) ? v.toFixed(d) : '–';
+  const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  const okA = A => A && CH.every(c => typeof A[c] === 'number' && isFinite(A[c]));
+  const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+  /* 2026-11-22 19:43 종이컵 사진(1% 원액을 묽힌 0~1%, 9컵을 한 장에 위에서 촬영)을 이 앱의 원형 측정으로 잰 값. 흡광도는 0% 컵 기준.
+     원은 각 용액 한가운데, 지름은 사진 너비의 10%. 0.02% 컵은 0.01%와 거의 같은 값(0.27)이 나와 뺐다. */
+  const DEFAULTS = [
+    [0, 0, 0, 0, 221, 220, 198], [0.005, 0.119, 0.114, 0.100, 196, 196, 179], [0.01, 0.240, 0.234, 0.148, 173, 173, 170],
+    [0.05, 1.075, 1.066, 0.869, 70, 70, 78], [0.1, 1.552, 1.578, 1.265, 39, 37, 49],
+    [0.2, 2.437, 2.487, 2.095, 9, 8, 14], [0.5, 3.265, 3.262, 2.754, 1, 1, 3], [1, 3.296, 3.302, 2.882, 1, 1, 2]
+  ];
+  const defaults = () => DEFAULTS.map((d, i) => ({ id: 'd' + i, conc: d[0], A: { r: d[1], g: d[2], b: d[3] }, rgb: [d[4], d[5], d[6]] }));
+
+  const state = { channel: 'r', method: 'interp', view: 'both', standards: defaults(), c0: '', unit: '%', size: 0.1 };
+  try {
+    const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (saved && typeof saved === 'object') {
+      for (const k of Object.keys(state)) if (k in saved) state[k] = saved[k];
+      state.standards = Array.isArray(state.standards) ? state.standards.filter(s => s && isFinite(s.conc) && okA(s.A)) : [];
+      if (!state.standards.length || state.standards.every(s => /^d\d$/.test(s.id))) state.standards = defaults();   /* 비었거나 손대지 않은 기본값이면 최신 기본값 */
+      if (!METHODS.includes(state.method)) state.method = 'interp';
+      if (!CH.includes(state.channel)) state.channel = 'r';
+      state.size = clamp(+state.size || 0.1, 0.03, 0.5);
+    }
+  } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) {} };
+
+  const cv = $('cv'), ctx = cv.getContext('2d', { willReadFrequently: true });
+  let regions = [], refIdx = -1, selIdx = -1, lastM = null, rows = [];      /* regions: 사진 위의 번호 원 {x, y, name} */
+
+  /* ---------- 사진 ---------- */
+  function drawDemo() {
+    cv.width = 960; cv.height = 560;
+    const W = cv.width, H = cv.height;
+    ctx.fillStyle = '#e4e4ea'; ctx.fillRect(0, 0, W, H);
+    const cup = (cx, color) => {       /* 위에서 내려다본 종이컵 */
+      ctx.beginPath(); ctx.arc(cx, H / 2, W * 0.14, 0, 7); ctx.fillStyle = '#f6f6f6'; ctx.fill();
+      ctx.strokeStyle = '#b4b4c0'; ctx.lineWidth = 3; ctx.stroke();
+      ctx.beginPath(); ctx.arc(cx, H / 2, W * 0.1, 0, 7); ctx.fillStyle = color; ctx.fill();
+    };
+    cup(W * 0.19, 'rgb(232,226,186)');
+    cup(W * 0.5, 'rgb(150,150,152)');
+    cup(W * 0.81, 'rgb(84,84,95)');
+  }
+  function loadPhoto(file) {
+    if (!file) return;
+    const url = URL.createObjectURL(file), img = new Image(), m = $('msgCam');
+    img.onload = () => {
+      $('demoBadge').hidden = true;
+      const k = Math.min(1, 1600 / Math.max(img.naturalWidth, img.naturalHeight));
+      cv.width = Math.round(img.naturalWidth * k); cv.height = Math.round(img.naturalHeight * k);
+      ctx.drawImage(img, 0, 0, cv.width, cv.height);
+      URL.revokeObjectURL(url); resetMarks('사진을 불러왔습니다. 재려는 용액을 눌러 주세요.');
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); m.className = 'msg'; m.textContent = '사진을 열 수 없습니다. JPG나 PNG 사진을 골라 주세요.'; };
+    img.src = url;
+  }
+
+  /* ---------- 번호 원 ---------- */
+  function resetMarks(text) {
+    regions = []; refIdx = -1; selIdx = -1;
+    const m = $('msgCam'); m.className = 'msg ok'; m.textContent = text;
+    buildMarks(); render();
+  }
+  const labelOf = i => (regions[i].name || String(i + 1)) + (i === refIdx ? ' 기준' : '');
+  function buildMarks() {
+    $('marks').innerHTML = regions.map((r, i) => `<div class="mark${i === refIdx ? ' ref' : ''}${i === selIdx ? ' sel' : ''}" data-i="${i}"><span>${esc(labelOf(i))}</span></div>`).join('');
+    layout();
+  }
+  function layout() {
+    const W = cv.clientWidth, H = cv.clientHeight, px = state.size * W;
+    [...$('marks').children].forEach((el, i) => {
+      if (!regions[i]) return;
+      el.style.width = el.style.height = px + 'px';
+      el.style.left = (regions[i].x * W - px / 2) + 'px'; el.style.top = (regions[i].y * H - px / 2) + 'px';
+    });
+  }
+  function readROI(p) {
+    /* 원 안의 픽셀만 읽고, 가장 밝은 15%(반사)와 가장 어두운 15%(그림자·테두리 얼룩)를 뺀 가운데 70%를 평균한다. */
+    const W = cv.width, H = cv.height, R = Math.max(2, state.size * W / 2), cx = p.x * W, cy = p.y * H;
+    const x0 = clamp(Math.floor(cx - R), 0, W - 1), y0 = clamp(Math.floor(cy - R), 0, H - 1);
+    const x1 = clamp(Math.ceil(cx + R), x0 + 1, W), y1 = clamp(Math.ceil(cy + R), y0 + 1, H);
+    const bw = x1 - x0, d = ctx.getImageData(x0, y0, bw, y1 - y0).data, step = Math.max(1, Math.floor(R / 28)), px = [];
+    let sat = 0, cs = 0, cn = 0, es = 0, en = 0;
+    for (let y = y0; y < y1; y += step) for (let x = x0; x < x1; x += step) {
+      const d2 = (x + 0.5 - cx) ** 2 + (y + 0.5 - cy) ** 2; if (d2 > R * R) continue;
+      const i = ((y - y0) * bw + (x - x0)) * 4, r = LUT[d[i]], g = LUT[d[i + 1]], b = LUT[d[i + 2]];
+      if (d[i] >= 250 || d[i + 1] >= 250 || d[i + 2] >= 250) sat++;
+      px.push([r + g + b, r, g, b, d2 <= 0.36 * R * R]);      /* 마지막 값: 가운데(반지름 60% 안)인지 */
+    }
+    const n = px.length; if (!n) return { r: 1e-4, g: 1e-4, b: 1e-4, sat: 0, edge: 0 };
+    px.sort((a, b) => a[0] - b[0]);
+    const lo = Math.floor(n * 0.15), hi = Math.max(lo + 1, Math.ceil(n * 0.85));
+    let r = 0, g = 0, b = 0;
+    for (let i = lo; i < hi; i++) {
+      r += px[i][1]; g += px[i][2]; b += px[i][3];
+      if (px[i][4]) { cs += px[i][0]; cn++; } else { es += px[i][0]; en++; }
+    }
+    const m = hi - lo, edge = cn && en ? -Math.log10(Math.max(es / en, 1e-4) / Math.max(cs / cn, 1e-4)) : 0;
+    return { r: r / m, g: g / m, b: b / m, sat: sat / n, edge };     /* edge: 가장자리가 가운데보다 진한 정도(흡광도 차) */
+  }
+  function absOf(s, ref) { const A = {}; for (const c of CH) A[c] = -Math.log10(Math.max(s[c], 1e-4) / Math.max(ref[c], 1e-4)); return A; }
+  const rgbOf = v => [toSRGB(v.r), toSRGB(v.g), toSRGB(v.b)];
+
+  /* ---------- 농도 모델 ---------- */
+  function knots() {            /* 농도별 평균 흡광도, 농도 오름차순 */
+    const c = state.channel, m = new Map();
+    for (const s of state.standards) { const e = m.get(s.conc) || [0, 0]; e[0] += s.A[c]; e[1]++; m.set(s.conc, e); }
+    return [...m].map(([x, e]) => ({ x, y: e[0] / e[1] })).sort((p, q) => p.x - q.x);
+  }
+  function lineFit(pts) {
+    const n = pts.length; if (n < 2) return null;
+    let sx = 0, sy = 0, sxx = 0, sxy = 0;
+    for (const p of pts) { sx += p.x; sy += p.y; sxx += p.x * p.x; sxy += p.x * p.y; }
+    const den = n * sxx - sx * sx; if (Math.abs(den) < 1e-15) return null;
+    const a = (n * sxy - sx * sy) / den, b = (sy - a * sx) / n; if (Math.abs(a) < 1e-9) return null;
+    let st = 0, sr = 0; for (const p of pts) { st += (p.y - sy / n) ** 2; sr += (p.y - (a * p.x + b)) ** 2; }
+    return { a, b, r2: st > 0 ? 1 - sr / st : 1, n };
+  }
+  /* 직선 후 포화: 포화 수준에 처음 닿기 전까지는 직선, 그 뒤로는 일정하다고 본다. */
+  function satFit(k) {
+    const amax = Math.max(...k.map(p => p.y)); if (!(amax > 0)) return null;
+    const thr = Math.min(0.85 * amax, 2.0);       /* 흡광도 2 이상은 사진에서 사실상 검정이라 포화로 본다 */
+    const first = k.findIndex(p => p.y >= thr); if (first < 1) return null;
+    const plat = k.slice(first).filter(p => p.y >= thr);
+    const P = plat.reduce((t, p) => t + p.y, 0) / plat.length;
+    let rise = k.slice(0, first);
+    if (rise.length < 2 || (plat.length === 1 && first === k.length - 1)) rise = k.slice(0, first + 1);   /* 포화 점이 하나뿐이면 직선에 포함 */
+    const f = lineFit(rise); if (!f || !(f.a > 0)) return null;
+    return { ...f, P, knee: (P - f.b) / f.a };
+  }
+  function model() {
+    const k = knots(), f = lineFit(k);
+    if (!f || k.length < 2) return null;
+    const lo = k[0].x, hi = k[k.length - 1].x, tol = (hi - lo) * 0.02;
+    const S = state.method === 'sat' ? satFit(k) : null;
+    const top = k[k.length - 1], rising = top.y >= k[0].y;
+    const est = Av => {
+      const A = Av[state.channel]; let c = NaN;
+      if (S) {
+        if (A >= S.P * 0.95) return { c: S.knee, out: true, sat: true };      /* 포화: 꺾이는 농도 이상이라는 것만 안다 */
+        c = (A - S.b) / S.a;
+        return { c, out: c < lo - tol };
+      }
+      if (state.method === 'interp') {
+        const amax = Math.max(...k.map(p => p.y));
+        if (rising && A > amax) return { c: hi, out: true, sat: true };      /* 가장 진한 표준보다 더 진함 */
+        const on =(p, q) => q.y === p.y ? NaN : p.x + (A - p.y) / (q.y - p.y) * (q.x - p.x);
+        for (let i = 0; i < k.length - 1 && isNaN(c); i++) if ((A - k[i].y) * (A - k[i + 1].y) <= 0) c = on(k[i], k[i + 1]);
+        if (isNaN(c)) {
+          const dir = Math.sign(k[k.length - 1].y - k[0].y) || 1;
+          c = (A - k[k.length - 1].y) * dir > 0 ? on(k[k.length - 2], k[k.length - 1]) : on(k[0], k[1]);
+        }
+      } else c = (A - f.b) / f.a;
+      return { c, out: !isFinite(c) || c < lo - tol || c > hi + tol, weak: state.method === 'interp' && A >= 2.0 };   /* 흡광도 2 이상은 거의 검정이라 오차가 크다 */
+    };
+    return { f, k, est, lo, hi, S };
+  }
+
+  /* ---------- 그래프 ---------- */
+  const niceStep = (range, n) => { const raw = range / n, p = Math.pow(10, Math.floor(Math.log10(raw))), m = raw / p; return (m < 1.5 ? 1 : m < 3 ? 2 : m < 7 ? 5 : 10) * p; };
+  const tickLabel = v => String(parseFloat(v.toPrecision(6)));
+  function drawChart(M) {
+    const svg = $('chart'), W = 360, H = 230, L = 46, R = 14, T = 16, B = 38, c = state.channel, mine = state.view === 'mine';
+    const note = t => { svg.innerHTML = `<text x="${W / 2}" y="${H / 2}" text-anchor="middle" style="font-size:12px">${t}</text>`; };
+    const sp = state.standards.map(s => ({ x: s.conc, y: s.A[c] }));
+    $('lgStd').hidden = mine;
+    if (!sp.length) return note('표준 색상이 없습니다');
+    const cp = rows.map((r, i) => r.e ? { i, label: (regions[i].name || String(i + 1)).slice(0, 10), x: r.e.c, y: r.A[c] } : null).filter(p => p && isFinite(p.x) && p.x >= 0 && isFinite(p.y));
+    if (mine && !cp.length) return note('사진에서 용액을 누르면 여기에 점이 찍힙니다');
+    let x0 = 0, x1, y0, y1;
+    if (mine) {                                   /* 이 사진의 용액만: 그 점들이 있는 범위로 확대 */
+      const xa = Math.min(...cp.map(p => p.x)), xb = Math.max(...cp.map(p => p.x)), ya = Math.min(...cp.map(p => p.y)), yb = Math.max(...cp.map(p => p.y));
+      const px = Math.max((xb - xa) * 0.2, xb * 0.15, 1e-4), py = Math.max((yb - ya) * 0.2, 0.05);
+      x0 = Math.max(0, xa - px); x1 = xb + px; y0 = ya - py; y1 = yb + py;
+    } else {
+      const all = sp.concat(cp);
+      x1 = Math.max(...all.map(p => p.x), 0); if (x1 <= 0) x1 = 1; x1 *= 1.1;
+      y1 = Math.max(...all.map(p => p.y), 0.1) * 1.15; y0 = Math.min(0, ...all.map(p => p.y));
+    }
+    const X = x => L + (x - x0) / (x1 - x0) * (W - L - R), Y = y => H - B - (y - y0) / (y1 - y0) * (H - T - B);
+    const P = (x, y) => X(x).toFixed(1) + ' ' + Y(y).toFixed(1);
+    let h = `<clipPath id="plot"><rect x="${L}" y="${T}" width="${W - L - R}" height="${H - T - B}"/></clipPath>`;
+    const xs = niceStep(x1 - x0, 5), ys = niceStep(y1 - y0, 5);
+    for (let v = Math.ceil(y0 / ys - 1e-9) * ys; v <= y1 + 1e-9; v += ys) h += `<path class="grid" d="M${L} ${Y(v).toFixed(1)}H${W - R}"/><text x="${L - 6}" y="${(Y(v) + 3).toFixed(1)}" text-anchor="end">${tickLabel(v)}</text>`;
+    for (let v = Math.ceil(x0 / xs - 1e-9) * xs; v <= x1 + 1e-9; v += xs) h += `<path class="ax" d="M${X(v).toFixed(1)} ${H - B}v4"/><text x="${X(v).toFixed(1)}" y="${H - B + 15}" text-anchor="middle">${tickLabel(v)}</text>`;
+    h += `<path class="ax" d="M${L} ${T}V${H - B}H${W - R}"/>`;
+    h += `<text x="${(L + W - R) / 2}" y="${H - 6}" text-anchor="middle">녹말 농도 (${esc(state.unit)})</text>`;
+    h += `<text transform="translate(11 ${(T + H - B) / 2}) rotate(-90)" text-anchor="middle">흡광도 (${CHNAME[c]} 채널)</text>`;
+    let line = '';
+    if (M && M.S) line = `M${P(0, M.S.b)}L${P(M.S.knee, M.S.P)}H${X(Math.max(x1, M.S.knee)).toFixed(1)}`;
+    else if (M && state.method === 'interp') line = 'M' + M.k.map(p => P(p.x, p.y)).join('L');
+    else if (M) line = `M${P(0, M.f.b)}L${P(x1, M.f.a * x1 + M.f.b)}`;
+    if (line) h += `<path class="fitline" clip-path="url(#plot)" d="${line}"/>`;
+    if (!mine) for (const p of sp) h += `<circle class="std" cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.5"/>`;
+    for (const p of cp) if (p.i !== selIdx) { const x = X(p.x), y = Y(p.y); h += `<circle class="cur" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4"/><text class="curt" x="${x.toFixed(1)}" y="${(y - 6).toFixed(1)}" text-anchor="middle">${esc(p.label)}</text>`; }
+    const sp1 = cp.find(p => p.i === selIdx);     /* 고른 용액: 축까지 점선을 긋고 크게 표시 */
+    if (sp1) {
+      const x = X(sp1.x), y = Y(sp1.y), ty = y < T + 18 ? y + 19 : y - 10, anchor = x > W - 70 ? 'end' : x < L + 30 ? 'start' : 'middle';
+      h += `<path class="guide" d="M${x.toFixed(1)} ${y.toFixed(1)}V${H - B}M${x.toFixed(1)} ${y.toFixed(1)}H${L}"/><circle class="cursel" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6.5"/><text class="curt sel" x="${x.toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="${anchor}">${esc(sp1.label)}</text>`;
+    }
+    svg.innerHTML = h;
+  }
+
+  /* ---------- 화면 그리기 ---------- */
+  const swatch = rgb => Array.isArray(rgb) && rgb.length === 3 ? `<span class="sw" style="background:rgb(${rgb.map(v => clamp(Math.round(+v) || 0, 0, 255)).join(',')})"></span>` : '';
+  const concText = e => !e ? '–' : e.sat ? `≥${fmt(e.c, 3)}` : (e.weak ? '약 ' : '') + fmt(e.c, e.weak ? 2 : 3);
+  function card(title, sub, rgb, cls, idx) {
+    const bars = rgb ? ['R', 'G', 'B'].map((n, j) => `<div class="rb"><b>${n}</b><span class="bar"><i class="b${n}" style="width:${clamp(rgb[j] / 255 * 100, 0, 100).toFixed(1)}%"></i></span><span class="num">${Math.round(rgb[j])}</span></div>`).join('') : '';
+    return `<div class="rgbcard ${cls}"${idx != null ? ` data-card="${idx}"` : ''}><div class="rt">${rgb ? swatch(rgb) : ''}<span class="nmx">${esc(title)}</span><span class="tag">${cls.startsWith('me') ? '내 용액' : '표준'}</span></div><div class="rs">${esc(sub)}</div>${bars}</div>`;
+  }
+  function renderPanel() {
+    const ch = state.channel, st = state.standards.filter(s => Array.isArray(s.rgb)), u = state.unit;
+    const pick = f => st.length ? st.reduce((a, b) => f(b) < f(a) ? b : a) : null;
+    const lemon = pick(s => s.conc), navy = pick(s => Math.abs(s.A[ch] - 1.5)), black = pick(s => -s.A[ch]);
+    const std = s => s ? `표준 ${tickLabel(s.conc)} ${u}` : '표준 없음';
+    const guides = [], seen = new Set();
+    for (const [name, s] of [['레몬색', lemon], ['남색', navy], ['검정', black]]) if (s && !seen.has(s)) { seen.add(s); guides.push({ name, s, a: s.A[ch] }); }
+    const aOf = i => i === refIdx ? 0 : rows[i].A ? rows[i].A[ch] : NaN;
+
+    /* 눈금선: 왼쪽 레몬색(녹말 적음)에서 오른쪽 검정(녹말 많음)까지 한 줄. 표준은 아래 눈금, 내 용액은 선 위의 번호 점 */
+    const lo = guides.length ? guides[0].a : 0, hi = guides.length ? Math.max(guides[guides.length - 1].a, lo + 0.1) : 1;
+    const pos = a => clamp((a - lo) / (hi - lo), 0, 1) * 100;
+    const css = rgb => `rgb(${rgb.map(v => clamp(Math.round(+v) || 0, 0, 255)).join(',')})`;
+    const grad = guides.length > 1 ? `linear-gradient(to right, ${guides.map(g => `${css(g.s.rgb)} ${pos(g.a).toFixed(1)}%`).join(', ')})` : 'var(--line)';
+    const dots = rows.map((r, i) => {
+      const a = aOf(i); if (!isFinite(a)) return '';
+      const rgb = rgbOf(r.s), dark = rgb[0] * 0.3 + rgb[1] * 0.6 + rgb[2] * 0.1 < 130, nm = regions[i].name || `${i + 1}번`;
+      return `<button type="button" class="dot${i === selIdx ? ' sel' : ''}" data-card="${i}" title="${esc(nm)}" aria-label="${esc(nm)}" style="left:${pos(a).toFixed(1)}%;background:${css(rgb)};color:${dark ? '#fff' : '#111'}">${i + 1}${i === selIdx ? `<span class="dl">${esc(nm)}</span>` : ''}</button>`;
+    }).join('');
+    const ticks = guides.map((g, j) => `<span class="tick${j === 0 ? ' first' : j === guides.length - 1 ? ' last' : ''}" style="left:${pos(g.a).toFixed(1)}%"><b>${g.name}</b>${esc(std(g.s))}</span>`).join('');
+    $('scale').innerHTML = `<div class="ends"><span>녹말 적음</span><i class="arrow"></i><span>녹말 많음</span></div><div class="track" style="background:${grad}">${dots}</div><div class="ticks">${ticks}</div>`;
+
+    /* 아래 칸: 표준 세 가지와 고른 용액 하나의 R·G·B 값 */
+    const items = guides.map(g => ({ a: g.a, g: 1, html: card(g.name, std(g.s), g.s.rgb, 'guide') }));
+    const r = rows[selIdx];
+    if (r) {
+      const sub = selIdx === refIdx ? '이 사진의 기준' : `흡광도 ${r.A ? fmt(r.A[ch], 3) : '–'} · ${r.e ? concText(r.e) + ' ' + u : '–'}`;
+      items.push({ a: isFinite(aOf(selIdx)) ? aOf(selIdx) : Infinity, g: 0, html: card(regions[selIdx].name || `${selIdx + 1}번`, sub, rgbOf(r.s), 'me sel') });
+    }
+    items.sort((p, q) => p.a - q.a || q.g - p.g);
+    $('rgbPanel').innerHTML = items.map(t => t.html).join('');
+  }
+  function applySel() {
+    [...$('marks').children].forEach((el, i) => el.classList.toggle('sel', i === selIdx));
+    [...$('resBody').rows].forEach(tr => tr.classList.toggle('sel', +tr.dataset.row === selIdx));
+    renderPanel(); drawChart(lastM);
+  }
+  function select(i) { if (regions[i]) { selIdx = i; applySel(); } }
+  function storedRef() {        /* 표준 색상 중 농도가 가장 낮은 것(0%)의 색을 기준으로 쓴다 */
+    const st = state.standards.filter(s => Array.isArray(s.rgb) && s.rgb.length === 3);
+    if (!st.length) return null;
+    const z = st.reduce((a, b) => b.conc < a.conc ? b : a), v = j => LUT[clamp(Math.round(+z.rgb[j]) || 0, 0, 255)];
+    return { r: v(0), g: v(1), b: v(2), sat: 0, edge: 0 };
+  }
+  function render() {
+    const M = model(), ch = state.channel, u = state.unit;
+    const refIn = regions[refIdx] ? readROI(regions[refIdx]) : null, ref = refIn || storedRef();      /* 사진 속 기준이 없으면 저장된 기준 색 */
+    const c0 = parseFloat(state.c0), useC0 = isFinite(c0) && c0 > 0;
+    rows = regions.map((r, i) => {
+      const s = readROI(r), A = ref ? absOf(s, ref) : null;
+      return { s, A, e: A && M && i !== refIdx ? M.est(A) : null };
+    });
+    $('resHead').innerHTML = `<tr><th>번호</th><th class="l">이름</th><th>색</th><th>흡광도</th><th>녹말 농도 (${esc(u)})</th>${useC0 ? '<th>분해율 (%)</th>' : ''}<th></th></tr>`;
+    $('resBody').innerHTML = regions.length ? rows.map((r, i) => {
+      const isRef = i === refIdx, flag = Math.abs(r.s.edge) > 0.12 ? '*' : '';
+      const conc = isRef ? '기준 (0)' : concText(r.e) + (r.e && !r.e.sat ? flag : '');
+      const deg = isRef || !r.e || r.e.sat ? '–' : fmt((1 - r.e.c / c0) * 100, 1);
+      return `<tr data-row="${i}"><td class="n">${i + 1}</td><td class="l"><input class="nm" data-nm="${i}" type="text" maxlength="16" value="${esc(regions[i].name)}" placeholder="이름" aria-label="${i + 1}번 이름"></td><td>${swatch(rgbOf(r.s))}</td><td class="n">${r.A ? fmt(r.A[ch], 3) : '–'}</td><td class="big">${conc}</td>${useC0 ? `<td class="n">${deg}</td>` : ''}<td>${isRef ? `<button class="small" type="button" data-unref="${i}">기준 해제</button> ` : `<button class="small" type="button" data-ref="${i}">기준으로</button> `}<button class="small" type="button" data-rm="${i}">빼기</button></td></tr>`;
+    }).join('') : `<tr><td class="empty" colspan="${useC0 ? 7 : 6}">왼쪽 사진에서 재려는 용액을 누르면 여기에 결과가 나옵니다.</td></tr>`;
+    const m = $('msgRes'); m.className = 'msg';
+    if (!regions.length) m.textContent = '';
+    else if (!ref) m.textContent = '기준 색이 없습니다. 사진 속 0% 용액의 「기준으로」를 누르거나, 설정에서 기본 표준 색상으로 되돌리세요.';
+    else if (!refIn) { m.className = 'msg ok'; m.textContent = '사진 속 기준 없이, 저장된 기준 색(표준 0%)으로 계산했습니다. 조명이나 노출이 표준 사진과 다르면 오차가 큽니다. 사진에 0% 용액이 있으면 그 줄의 「기준으로」를 누르세요.'; }
+    else if (ref.sat > 0.15) m.textContent = '기준 용액이 너무 밝게 찍혀 값이 포화되었습니다. 조금 어둡게 다시 찍어 주세요.';
+    else if (ref[ch] < 0.05) m.textContent = '기준 용액이 너무 어둡습니다. 기준이 0% 용액이 맞는지 확인하세요.';
+    else if (regions.length < 2) m.textContent = '';
+    else if (rows.some((r, i) => i !== refIdx && r.A && r.A[ch] < -0.05)) m.textContent = '기준보다 밝은 용액이 있습니다. 기준이 0% 용액이 맞는지, 원이 용액 안에 있는지 확인하세요.';
+    else m.textContent = '';
+
+    $('fit').textContent = !M ? '농도가 서로 다른 표준 색상이 2개 이상 있어야 농도를 계산할 수 있습니다.'
+      : M.S ? `${fmt(M.S.knee, 3)} ${u} 미만:  흡광도 = ${fmt(M.S.a, 2)} × 농도 ${M.S.b < 0 ? '−' : '+'} ${fmt(Math.abs(M.S.b), 3)}   (R² = ${fmt(M.S.r2, 3)})\n그 이상:  검게 포화되어 구분할 수 없음`
+      : state.method === 'interp' ? '표준 점 사이를 직선으로 이어서 농도를 읽습니다.\n흡광도 2 이상은 거의 검게 보여 색 차이가 아주 작으므로, 그 구간의 농도는 대략적인 값입니다.'
+      : `흡광도 = ${fmt(M.f.a, 2)} × 농도 ${M.f.b < 0 ? '−' : '+'} ${fmt(Math.abs(M.f.b), 3)}   (R² = ${fmt(M.f.r2, 3)})`;
+    lastM = M;
+    if (!regions[selIdx]) selIdx = regions.findIndex((r, i) => i !== refIdx);      /* 고른 것이 없으면 기준이 아닌 첫 용액 */
+    applySel();
+
+    $('thStdC').textContent = `농도 (${u})`;
+    $('stdBody').innerHTML = state.standards.length ? state.standards.map(s =>
+      `<tr><td>${swatch(s.rgb)}</td><td class="n">${fmt(s.conc, 3)}</td><td class="n">${fmt(s.A[ch], 3)}</td><td><button class="small" type="button" data-del="${esc(s.id)}">삭제</button></td></tr>`).join('')
+      : '<tr><td class="empty" colspan="4">표준 색상이 없습니다. 「기본 표준 색상으로 되돌리기」를 누르거나 새로 등록하세요.</td></tr>';
+    save();
+  }
+
+  function buildTSV() {
+    const c = state.channel, M = model(), u = state.unit, c0 = parseFloat(state.c0), L = [];
+    L.push(`번호\t이름\t흡광도(${CHNAME[c]})\t녹말 농도(${u})\t분해율(%)\tR\tG\tB`);
+    rows.forEach((r, i) => {
+      const isRef = i === refIdx, k = r.e && !r.e.sat ? r.e.c : NaN;
+      L.push([i + 1, (regions[i].name || '').replace(/\t/g, ' '), r.A ? fmt(r.A[c], 4) : '', isRef ? '기준' : concText(r.e), isFinite(k) && c0 > 0 ? fmt((1 - k / c0) * 100, 2) : '', ...rgbOf(r.s)].join('\t'));
+    });
+    L.push('', `표준 색상 (${CHNAME[c]} 채널)`, `농도(${u})\t흡광도`);
+    for (const s of state.standards) L.push(`${s.conc}\t${fmt(s.A[c], 4)}`);
+    if (M && M.S) L.push(`직선 기울기\t${fmt(M.S.a, 4)}`, `직선 절편\t${fmt(M.S.b, 5)}`, `R²\t${fmt(M.S.r2, 5)}`, `포화 시작 농도\t${fmt(M.S.knee, 5)}`);
+    else if (M && state.method === 'linear') L.push(`기울기\t${fmt(M.f.a, 4)}`, `절편\t${fmt(M.f.b, 5)}`, `R²\t${fmt(M.f.r2, 5)}`);
+    return L.join('\n');
+  }
+  function registerBulk(append) {
+    const m = $('msgStd'), tok = $('bulkConc').value.split(/[,\s]+/).filter(Boolean);
+    m.className = 'msg';
+    if (!regions.length || !regions[refIdx]) { m.textContent = '표준을 등록하려면 사진에 0% 용액이 있어야 합니다. 원을 찍고 0% 용액 줄의 「기준으로」를 먼저 누르세요.'; return; }
+    if (tok.length !== regions.length) { m.textContent = `원은 ${regions.length}개인데 농도는 ${tok.length}개입니다. 개수를 맞추세요.`; return; }
+    const list = [];
+    for (let i = 0; i < tok.length; i++) {
+      if (tok[i] === '-') continue;
+      const v = Number(tok[i]);
+      if (!isFinite(v) || v < 0) { m.textContent = '농도는 0 이상의 숫자나 - 를 쉼표로 구분해 입력하세요.'; return; }
+      list.push({ id: newId(), conc: v, A: rows[i].A, rgb: rgbOf(rows[i].s) });
+    }
+    if (!list.length) { m.textContent = '등록할 농도가 없습니다.'; return; }
+    state.standards = (append ? state.standards.concat(list) : list).sort((a, b) => a.conc - b.conc);
+    m.className = 'msg ok'; m.textContent = `표준 색상 ${list.length}개를 ${append ? '추가했습니다' : '새로 등록했습니다'}.`;
+    render();
+  }
+
+  /* ---------- 이벤트 ---------- */
+  $('file').addEventListener('change', e => { loadPhoto(e.target.files[0]); e.target.value = ''; });
+  $('size').value = state.size;
+  $('size').addEventListener('input', e => { state.size = parseFloat(e.target.value); layout(); render(); });
+  $('btnManual').addEventListener('click', () => resetMarks('사진에서 재려는 용액을 눌러 주세요.'));
+  cv.addEventListener('click', e => {             /* 사진을 누르면 그 자리에 원 추가 */
+    const b = cv.getBoundingClientRect();
+    regions.push({ x: clamp((e.clientX - b.left) / b.width, 0.01, 0.99), y: clamp((e.clientY - b.top) / b.height, 0.01, 0.99), name: '' });
+    selIdx = regions.length - 1;
+    const m = $('msgCam'); m.className = 'msg ok'; m.textContent = `${regions.length}번 원을 추가했습니다.`;
+    buildMarks(); render();
+  });
+  let drag = null;                                /* 원 끌어서 옮기기 */
+  $('marks').addEventListener('pointerdown', e => {
+    const el = e.target.closest('.mark'); if (!el) return;
+    drag = { i: +el.dataset.i, moved: false, x: e.clientX, y: e.clientY };
+    try { el.setPointerCapture(e.pointerId); } catch (x) {}
+    e.preventDefault();
+  });
+  $('marks').addEventListener('pointermove', e => {
+    if (!drag || !regions[drag.i]) return;
+    if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 4) return;
+    drag.moved = true;
+    const b = cv.getBoundingClientRect(), r = regions[drag.i];
+    r.x = clamp((e.clientX - b.left) / b.width, 0.01, 0.99); r.y = clamp((e.clientY - b.top) / b.height, 0.01, 0.99);
+    layout();
+  });
+  const endDrag = () => { const d = drag; drag = null; if (d && d.moved) render(); else if (d) select(d.i); };
+  $('marks').addEventListener('pointerup', endDrag); $('marks').addEventListener('pointercancel', endDrag);
+
+  document.addEventListener('input', e => {       /* 이름 입력: 표를 다시 그리지 않고 사진의 이름표만 바꾼다 */
+    const t = e.target; if (!t.dataset || t.dataset.nm == null) return;
+    const i = +t.dataset.nm; if (!regions[i]) return;
+    regions[i].name = t.value.trim();
+    const el = $('marks').children[i]; if (el) el.firstChild.textContent = labelOf(i);
+    renderPanel(); drawChart(lastM);              /* 그래프와 색 칸의 이름도 바로 바꾼다 */
+  });
+  document.addEventListener('focusin', e => { const t = e.target; if (t.dataset && t.dataset.nm != null && +t.dataset.nm !== selIdx) select(+t.dataset.nm); });
+  document.addEventListener('click', e => {
+    const hit = sel => e.target.closest && e.target.closest(sel);
+    const rf = hit('[data-ref]'), rm = hit('[data-rm]'), del = hit('[data-del]');
+    if (hit('[data-unref]')) { refIdx = -1; buildMarks(); render(); }
+    else if (rf) { refIdx = +rf.dataset.ref; if (selIdx === refIdx) selIdx = -1; buildMarks(); render(); }
+    else if (rm) {
+      const i = +rm.dataset.rm; regions.splice(i, 1);
+      refIdx = refIdx === i ? -1 : refIdx > i ? refIdx - 1 : refIdx;
+      if (selIdx === i) selIdx = -1; else if (selIdx > i) selIdx--;
+      buildMarks(); render();
+    } else if (del) { state.standards = state.standards.filter(x => x.id !== del.dataset.del); render(); }
+    else {
+      const row = hit('tr[data-row]'), cd = hit('[data-card]');
+      if (cd) select(+cd.dataset.card); else if (row && !hit('button')) select(+row.dataset.row);
+    }
+  });
+
+  $('c0').value = state.c0;
+  $('c0').addEventListener('input', e => { state.c0 = e.target.value; render(); });
+  $('unit').value = state.unit;
+  $('unit').addEventListener('input', e => { state.unit = e.target.value.trim() || '%'; render(); });
+  $('ch' + CHNAME[state.channel]).checked = true;
+  document.querySelectorAll('input[name="ch"]').forEach(el => el.addEventListener('change', () => { state.channel = el.value; render(); }));
+  $(METHOD_ID[state.method]).checked = true;
+  document.querySelectorAll('input[name="method"]').forEach(el => el.addEventListener('change', () => { state.method = el.value; render(); }));
+  $(state.view === 'mine' ? 'vMine' : 'vBoth').checked = true;
+  document.querySelectorAll('input[name="view"]').forEach(el => el.addEventListener('change', () => { state.view = el.value; drawChart(lastM); save(); }));
+  $('btnBulk').addEventListener('click', () => registerBulk(false));
+  $('btnBulkAdd').addEventListener('click', () => registerBulk(true));
+  $('btnDef').addEventListener('click', () => {
+    state.standards = defaults(); state.unit = '%'; $('unit').value = '%';
+    const m = $('msgExp'); m.className = 'msg ok'; m.textContent = `기본 표준 색상 ${DEFAULTS.length}개로 바꿨습니다.`; render();
+  });
+  $('btnCopy').addEventListener('click', async () => {
+    const text = buildTSV(), ta = $('tsv'), m = $('msgOut');
+    try { await navigator.clipboard.writeText(text); ta.hidden = true; m.textContent = '복사했습니다. 엑셀이나 스프레드시트에 붙여 넣으세요.'; }
+    catch (e) { ta.hidden = false; ta.value = text; ta.focus(); ta.select(); m.textContent = '아래 내용을 직접 선택해 복사하세요.'; }
+  });
+  $('btnExp').addEventListener('click', () => {
+    const code = JSON.stringify({ v: 1, unit: state.unit, channel: state.channel, method: state.method, standards: state.standards.map(s => ({ conc: s.conc, A: s.A, rgb: s.rgb })) });
+    $('impBox').hidden = false;
+    const m = $('msgExp'); m.className = 'msg ok';
+    navigator.clipboard.writeText(code).then(() => { m.textContent = '표준 색상 코드를 복사했습니다. 다른 기기에서 「코드로 가져오기」에 붙여 넣으세요.'; })
+      .catch(() => { $('imp').value = code; $('imp').focus(); $('imp').select(); m.textContent = '아래 코드를 직접 선택해 복사하세요.'; });
+  });
+  $('btnImp').addEventListener('click', () => { $('impBox').hidden = !$('impBox').hidden; if (!$('impBox').hidden) $('imp').focus(); });
+  $('btnImpGo').addEventListener('click', () => {
+    const m = $('msgExp');
+    try {
+      const d = JSON.parse($('imp').value);
+      const list = (d.standards || []).filter(s => s && typeof s.conc === 'number' && isFinite(s.conc) && okA(s.A))
+        .map(s => ({ id: newId(), conc: s.conc, A: { r: s.A.r, g: s.A.g, b: s.A.b }, rgb: Array.isArray(s.rgb) ? s.rgb.slice(0, 3).map(Number) : null }));
+      if (!list.length) throw new Error('empty');
+      state.standards = list.sort((a, b) => a.conc - b.conc);
+      if (typeof d.unit === 'string' && d.unit.trim()) { state.unit = d.unit.trim().slice(0, 8); $('unit').value = state.unit; }
+      if (CH.includes(d.channel)) { state.channel = d.channel; $('ch' + CHNAME[d.channel]).checked = true; }
+      if (METHODS.includes(d.method)) { state.method = d.method; $(METHOD_ID[d.method]).checked = true; }
+      $('imp').value = ''; $('impBox').hidden = true;
+      m.className = 'msg ok'; m.textContent = `표준 색상 ${list.length}개를 가져왔습니다.`;
+      render();
+    } catch (e) { m.className = 'msg'; m.textContent = '코드를 읽을 수 없습니다. 「표준 색상 코드 복사」로 복사한 내용을 그대로 붙여 넣으세요.'; }
+  });
+  if (window.ResizeObserver) new ResizeObserver(layout).observe(cv); else window.addEventListener('resize', layout);
+
+  drawDemo();                                     /* 예시 화면: 컵 세 개에 원을 미리 찍어 두고 첫 컵을 0% 기준으로 */
+  regions = [0.19, 0.5, 0.81].map(x => ({ x, y: 0.5, name: '' })); refIdx = 0;
+  buildMarks(); render();
+})();
+</script>
+</body>
+</html>
