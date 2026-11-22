@@ -4,16 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>RGB 모의 분광광도계</title>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+KR:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;700&display=swap">
 <style>
 /* 레이아웃: 넓은 화면에서는 왼쪽에 사진, 오른쪽에 결과 표와 검정곡선이 한 화면에 보인다. 좁으면 한 열로 쌓인다. */
 :root {
-  --bg: #F2F2F8;
+  --bg: #F4F3FA;
   --surface: #FFFFFF;
   --ink: #1B1A3A;
   --muted: #5F5E7C;
   --line: #D8D7E6;
-  --accent: #3A2FA8;        /* 아이오딘-녹말 복합체의 청람색 */
+  --accent: #4338CA;      /* 아이오딘-녹말 복합체의 청람색 */
   --accent-ink: #FFFFFF;
   --amber: #A66A00;         /* 아이오딘 용액의 황갈색 */
   --warn: #B3261E;
@@ -25,7 +25,9 @@
   --card-line: transparent;
   --shadow: 0 1px 2px rgba(27, 26, 58, 0.06), 0 10px 28px rgba(27, 26, 58, 0.07);
   --ch-r: #CF3F38; --ch-g: #23884A; --ch-b: #2F5FD0;
-  --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --btn-shadow: 0 4px 14px rgba(67, 56, 202, 0.28);
+  --font-body: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+  --font-display: "Do Hyeon", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
 }
 @media (prefers-color-scheme: dark) {
@@ -34,7 +36,7 @@
     --accent: #948CFF; --accent-ink: #111024; --amber: #E8AD3F; --warn: #FF8A80;
     --stage: #07060F; --stage-ink: #FFFFFF; --roi-ref: #FFC24A;
     --sel: #2B2955; --ch-r: #FF7A72; --ch-g: #5FCB86; --ch-b: #7FA2FF;
-    --hl: #6A5600; --card-line: #34335A; --shadow: none;
+    --hl: #6A5600; --card-line: #34335A; --shadow: none; --btn-shadow: none;
     color-scheme: dark;
   }
 }
@@ -43,7 +45,7 @@
   --accent: #948CFF; --accent-ink: #111024; --amber: #E8AD3F; --warn: #FF8A80;
   --stage: #07060F; --stage-ink: #FFFFFF; --roi-ref: #FFC24A;
     --sel: #2B2955; --ch-r: #FF7A72; --ch-g: #5FCB86; --ch-b: #7FA2FF;
-    --hl: #6A5600; --card-line: #34335A; --shadow: none;
+    --hl: #6A5600; --card-line: #34335A; --shadow: none; --btn-shadow: none;
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
@@ -216,11 +218,40 @@ button.small { border-color: transparent; background: var(--bg); }
 .panel .rgbcard.me { background: var(--surface); }
 .scale .track { height: 22px; border-radius: 11px; }
 th { border-bottom-color: var(--ink); }
+/* 다듬기: 둥근 제목 글꼴과 아이오딘 색 띠, 알약 모양 버튼, 부드러운 입력 칸 */
+.hero { padding: 16px 4px 0; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.hero h1 { font-family: var(--font-display); font-weight: 400; font-size: 44px; letter-spacing: 0; line-height: 1.2; }
+.hero h1 span { background: linear-gradient(transparent 58%, var(--hl) 58%, var(--hl) 96%, transparent 96%); padding: 0 10px; margin-left: -10px; border-radius: 4px; }
+.hero p { margin: 0; font-size: 15.5px; }
+.hero::after { content: ""; width: min(340px, 70%); height: 6px; border-radius: 3px; margin-top: 10px; background: linear-gradient(to right, var(--hl), var(--accent) 55%, var(--ink)); }
+.panel { border-radius: 22px; padding: 22px 24px; }
+.panel > h2, h2.minor { font-size: 18px; font-weight: 700; }
+button, .filebtn { border-radius: 999px; padding: 8px 20px; }
+button.small { padding: 2px 12px; }
+.filebtn.primary, button.primary { box-shadow: var(--btn-shadow); }
+.field input[type="text"], .field input[type="number"], input.nm { border-color: transparent; border-radius: 10px; }
+.stage { border-radius: 16px; }
+th { border-bottom: 1.5px solid var(--line); letter-spacing: 0.02em; }
+tbody tr:last-child td { border-bottom: 0; }
+td.big { font-size: 16px; }
+#chart .fitline { stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+#chart .std { r: 4; }
+.seg label { position: relative; padding: 5px 14px; min-height: 34px; border-radius: 999px; background: var(--bg); font-size: 13.5px; font-weight: 500; }
+.seg { gap: 6px; }
+.seg input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.seg label:has(input:checked) { background: var(--accent); color: var(--accent-ink); }
+.seg label:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 2px; }
+.scale .track { height: 24px; border-radius: 12px; border: 0; box-shadow: inset 0 0 0 1px var(--line); }
+.rgbpanel .rgbcard { border-radius: 12px; }
+.legend { font-size: 13px; }
+summary { padding: 0 6px; }
 /* 색 비교: 색 띠, 점선, 그 아래 한 줄로 늘어선 R·G·B 칸 */
 .cmp { display: flex; flex-direction: column; min-width: 0; }
 .scale .ends { margin-bottom: 28px; }
 .scale .gt { position: absolute; top: 100%; width: 1.5px; height: 8px; background: var(--muted); transform: translateX(-50%); }
-.scale .dl { font-size: 11.5px; }
+.scale .dl { font-size: 11.5px; bottom: calc(100% + 6px + var(--lv, 0) * 17px); transform: translateX(calc(-50% + var(--dx, 0px))); }
+.scale .dl > span { display: block; max-width: 8.5em; overflow: hidden; text-overflow: ellipsis; background: var(--surface); padding: 0 4px; border-radius: 4px; }
+.scale .dl::after { content: ""; position: absolute; top: 100%; left: calc(50% - var(--dx, 0px)); width: 1px; height: calc(var(--lv, 0) * 17px + 4px); background: var(--muted); }
 .links { display: block; width: 100%; height: 44px; margin-top: 10px; }
 .links path { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 3 3; fill: none; }
 .links path.me { stroke: var(--accent); }
@@ -579,13 +610,26 @@ ul.tips { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 13.5px
     else if (M) line = `M${P(0, M.f.b)}L${P(x1, M.f.a * x1 + M.f.b)}`;
     if (line) h += `<path class="fitline" clip-path="url(#plot)" d="${line}"/>`;
     if (!mine) for (const p of sp) h += `<circle class="std" cx="${X(p.x).toFixed(1)}" cy="${Y(p.y).toFixed(1)}" r="3.5"/>`;
-    for (const p of cp) if (p.i !== selIdx) { const x = X(p.x), y = Y(p.y); h += `<circle class="cur" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4"/><text class="curt" x="${x.toFixed(1)}" y="${(y - 6).toFixed(1)}" text-anchor="middle">${esc(p.label)}</text>`; }
+    /* 이름표: 글자 폭을 어림해 그래프 안에 들어오게 하고, 먼저 놓인 이름표와 겹치면 한 줄씩 위로 올린다 */
+    const boxes = [];
+    const place = (label, x, y, fs) => {
+      const w = [...label].reduce((t, ch) => t + (ch.charCodeAt(0) > 255 ? 1 : 0.62), 0) * fs, tx = clamp(x, L + w / 2 + 2, W - R - w / 2);
+      let ty = y;
+      for (let n = 0; n < 9; n++) {
+        const b = [tx - w / 2, tx + w / 2, ty - fs, ty + 2];
+        if (ty - fs > 2 && !boxes.some(o => b[0] < o[1] && o[0] < b[1] && b[2] < o[3] && o[2] < b[3])) { boxes.push(b); break; }
+        ty -= fs + 2;
+      }
+      return `x="${tx.toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="middle"`;
+    };
     const sp1 = cp.find(p => p.i === selIdx);     /* 고른 용액: 축까지 점선을 긋고 크게 표시 */
+    let top = '';
     if (sp1) {
-      const x = X(sp1.x), y = Y(sp1.y), ty = y < T + 18 ? y + 19 : y - 10, anchor = x > W - 70 ? 'end' : x < L + 30 ? 'start' : 'middle';
-      h += `<path class="guide" d="M${x.toFixed(1)} ${y.toFixed(1)}V${H - B}M${x.toFixed(1)} ${y.toFixed(1)}H${L}"/><circle class="cursel" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6.5"/><text class="curt sel" x="${x.toFixed(1)}" y="${ty.toFixed(1)}" text-anchor="${anchor}">${esc(sp1.label)}</text>`;
+      const x = X(sp1.x), y = Y(sp1.y);
+      top = `<path class="guide" d="M${x.toFixed(1)} ${y.toFixed(1)}V${H - B}M${x.toFixed(1)} ${y.toFixed(1)}H${L}"/><circle class="cursel" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="6.5"/><text class="curt sel" ${place(sp1.label, x, y - 10, 11)}>${esc(sp1.label)}</text>`;
     }
-    svg.innerHTML = h;
+    for (const p of cp) if (p.i !== selIdx) { const x = X(p.x), y = Y(p.y); h += `<circle class="cur" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="4"/><text class="curt" ${place(p.label, x, y - 6, 8.5)}>${esc(p.label)}</text>`; }
+    svg.innerHTML = h + top;
   }
 
   /* ---------- 화면 그리기 ---------- */
@@ -612,7 +656,7 @@ ul.tips { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 13.5px
     const dots = rows.map((r, i) => {
       const a = aOf(i); if (!isFinite(a)) return '';
       const rgb = rgbOf(r.s), dark = rgb[0] * 0.3 + rgb[1] * 0.6 + rgb[2] * 0.1 < 130, nm = regions[i].name;
-      return `<button type="button" class="dot${i === selIdx ? ' sel' : ''}" data-card="${i}" title="${esc(nm || `${i + 1}번`)}" aria-label="${esc(nm || `${i + 1}번`)}" style="left:${pos(a).toFixed(1)}%;background:${css(rgb)};color:${dark ? '#fff' : '#111'}">${i + 1}${nm ? `<span class="dl">${esc(nm)}</span>` : ''}</button>`;
+      return `<button type="button" class="dot${i === selIdx ? ' sel' : ''}" data-card="${i}" title="${esc(nm || `${i + 1}번`)}" aria-label="${esc(nm || `${i + 1}번`)}" style="left:${pos(a).toFixed(1)}%;background:${css(rgb)};color:${dark ? '#fff' : '#111'}">${i + 1}${nm ? `<span class="dl"><span>${esc(nm)}</span></span>` : ''}</button>`;
     }).join('');
     const ticks = guides.map(g => `<i class="gt" style="left:${pos(g.a).toFixed(1)}%"></i>`).join('');
     $('scale').innerHTML = `<div class="ends"><span>녹말 적음</span><i class="arrow"></i><span>녹말 많음</span></div><div class="track" style="background:${grad}">${ticks}${dots}</div>`;
@@ -626,7 +670,22 @@ ul.tips { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 13.5px
     });
     items.sort((p, q) => p.a - q.a || q.g - p.g);
     $('rgbPanel').innerHTML = items.map(t => t.html).join('');
-    drawLinks();
+    placeLabels(); drawLinks();
+  }
+  function placeLabels() {      /* 점 위의 이름표가 서로 겹치면 한 단씩 위로 올리고, 띠 밖으로 나가지 않게 옆으로 민다 */
+    const track = document.querySelector('#scale .track'), ends = document.querySelector('#scale .ends');
+    if (!track || !ends) return;
+    const tb = track.getBoundingClientRect(), rights = [];
+    const labs = [...track.querySelectorAll('.dl')].map(el => { const d = el.parentElement.getBoundingClientRect(); return { el, cx: d.left + d.width / 2, w: el.offsetWidth }; }).sort((a, b) => a.cx - b.cx);
+    let top = 0;
+    for (const L of labs) {
+      const left = clamp(L.cx - L.w / 2, tb.left - 12, Math.max(tb.left - 12, tb.right + 12 - L.w));
+      let lv = 0; while (rights[lv] != null && rights[lv] > left - 6) lv++;
+      rights[lv] = left + L.w; top = Math.max(top, lv);
+      L.el.style.setProperty('--lv', lv);
+      L.el.style.setProperty('--dx', (left - (L.cx - L.w / 2)).toFixed(1) + 'px');
+    }
+    ends.style.marginBottom = (28 + top * 17) + 'px';
   }
   function drawLinks() {        /* 띠 위의 자리와 아래 칸을 점선으로 잇는다 */
     const svg = $('links'), track = document.querySelector('#scale .track');
