@@ -216,6 +216,21 @@ button.small { border-color: transparent; background: var(--bg); }
 .panel .rgbcard.me { background: var(--surface); }
 .scale .track { height: 22px; border-radius: 11px; }
 th { border-bottom-color: var(--ink); }
+/* 색 비교: 색 띠, 점선, 그 아래 한 줄로 늘어선 R·G·B 칸 */
+.cmp { display: flex; flex-direction: column; min-width: 0; }
+.scale .ends { margin-bottom: 28px; }
+.scale .gt { position: absolute; top: 100%; width: 1.5px; height: 8px; background: var(--muted); transform: translateX(-50%); }
+.scale .dl { font-size: 11.5px; }
+.links { display: block; width: 100%; height: 44px; margin-top: 10px; }
+.links path { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 3 3; fill: none; }
+.links path.me { stroke: var(--accent); }
+.links path.sel { stroke: var(--accent); stroke-width: 2.2; stroke-dasharray: 5 3; }
+.rgbpanel { display: flex; overflow-x: auto; gap: 6px; padding-bottom: 4px; }
+.rgbpanel .rgbcard { flex: 1 0 86px; min-width: 86px; padding: 8px; gap: 3px; border-radius: 10px; }
+.rgbpanel .rgbcard.me.sel { padding: 6.5px; }
+.rgbpanel .rt { font-size: 13px; }
+.rgbpanel .rs { min-height: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rgbpanel .rb { grid-template-columns: 0.9em 1fr 1.9em; gap: 4px; font-size: 11px; }
 .panel .sizer { flex: 1 1 10em; min-height: 44px; }
 .panel #chart { border: 0; border-radius: 0; max-height: 40vh; }
 .panel .rgbcard, .panel input.nm, .panel .field input { background: var(--bg); }
@@ -268,7 +283,8 @@ ul.tips { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 13.5px
         </table></div>
         <p class="msg" id="msgRes" role="status"></p>
         <div class="row">
-          <label class="field">분해 전 녹말 농도 (선택)<input id="c0" type="number" inputmode="decimal" min="0" step="any" placeholder="예: 0.1"></label>
+          <label class="field">희석 배수 (선택)<input id="dil" type="number" inputmode="decimal" min="1" step="any" placeholder="예: 10"></label>
+          <label class="field">분해 전 녹말 농도 (선택)<input id="c0" type="number" inputmode="decimal" min="0" step="any" placeholder="예: 1"></label>
           <button id="btnCopy" type="button">결과를 표로 복사</button>
         </div>
         <p class="msg ok" id="msgOut" role="status"></p>
@@ -290,9 +306,12 @@ ul.tips { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 13.5px
 
       <section class="panel" aria-labelledby="h2s">
         <h2 id="h2s">색 비교</h2>
-        <div class="scale" id="scale"></div>
-        <div class="rgbpanel" id="rgbPanel"></div>
-        <p class="hint">번호 점이 사진에서 누른 용액의 위치입니다. 점을 누르면 아래 칸에 그 용액의 R·G·B 값이 나옵니다.</p>
+        <div class="cmp">
+          <div class="scale" id="scale"></div>
+          <svg class="links" id="links" aria-hidden="true"></svg>
+          <div class="rgbpanel" id="rgbPanel"></div>
+        </div>
+        <p class="hint">띠 위의 번호 점이 사진에서 누른 용액이고, 점선으로 이어진 아래 칸이 그 용액의 R·G·B 값입니다. 회색 칸은 미리 저장된 표준 색입니다.</p>
       </section>
     </div>
   </div>
@@ -303,6 +322,7 @@ ul.tips { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 13.5px
         <li>흡광도는 기준 용액보다 얼마나 어두운지를 나타내는 값으로, 사진의 빨강(R) 값으로 계산합니다. 녹말이 진할수록 레몬색에서 남색, 검정 쪽으로 가면서 R·G·B가 모두 내려갑니다.</li>
         <li>사진에 0% 기준 용액이 함께 있으면 측정값 표에서 그 줄의 「기준으로」를 누르세요. 없으면 저장된 기준 색으로 계산하며, 조명이 표준 사진과 다르면 오차가 큽니다.</li>
         <li>「약」은 거의 검게 보이는 진한 구간이라 오차가 크다는 뜻, 「≥」는 가장 진한 표준보다도 진하다는 뜻, * 는 원 안의 색이 고르지 않다는 뜻입니다.</li>
+        <li>녹말 0.1%와 1%는 농도가 10배 차이지만 사진에서는 둘 다 어둡게 찍혀 구분이 어렵습니다. 0.1%보다 진한 용액은 물로 묽혀서 0~0.1% 범위에 들어오게 한 뒤 재고, 「희석 배수」에 묽힌 배수를 넣으면 원래 농도로 바꿔 보여 줍니다.</li>
         <li>분해 전 농도를 넣으면 표에 분해율이 함께 나옵니다. 분해율 = (1 − 추정 농도 ÷ 분해 전 농도) × 100</li>
         <li>표준 색상을 찍을 때와 같은 컵, 같은 양, 같은 아이오딘 방울 수로 맞추고, 그림자나 반사가 없게 위에서 찍습니다.</li>
         <li>플래시, HDR, 필터는 끄고, 찍은 사진은 보정하지 않고 그대로 올립니다. 원은 용액 밖으로 나가지 않게 크기를 맞춥니다.</li>
@@ -377,7 +397,7 @@ ul.tips { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 13.5px
   ];
   const defaults = () => DEFAULTS.map((d, i) => ({ id: 'd' + i, conc: d[0], A: { r: d[1], g: d[2], b: d[3] }, rgb: [d[4], d[5], d[6]] }));
 
-  const state = { channel: 'r', method: 'interp', view: 'both', standards: defaults(), c0: '', unit: '%', size: 0.1 };
+  const state = { channel: 'r', method: 'interp', view: 'both', standards: defaults(), c0: '', dil: '', unit: '%', size: 0.1 };
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) || 'null');
     if (saved && typeof saved === 'object') {
@@ -570,42 +590,56 @@ ul.tips { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 13.5px
 
   /* ---------- 화면 그리기 ---------- */
   const swatch = rgb => Array.isArray(rgb) && rgb.length === 3 ? `<span class="sw" style="background:rgb(${rgb.map(v => clamp(Math.round(+v) || 0, 0, 255)).join(',')})"></span>` : '';
-  const concText = e => !e ? '–' : e.sat ? `≥${fmt(e.c, 3)}` : (e.weak ? '약 ' : '') + fmt(e.c, e.weak ? 2 : 3);
-  function card(title, sub, rgb, cls, idx) {
-    const bars = rgb ? ['R', 'G', 'B'].map((n, j) => `<div class="rb"><b>${n}</b><span class="bar"><i class="b${n}" style="width:${clamp(rgb[j] / 255 * 100, 0, 100).toFixed(1)}%"></i></span><span class="num">${Math.round(rgb[j])}</span></div>`).join('') : '';
-    return `<div class="rgbcard ${cls}"${idx != null ? ` data-card="${idx}"` : ''}><div class="rt">${rgb ? swatch(rgb) : ''}<span class="nmx">${esc(title)}</span><span class="tag">${cls.startsWith('me') ? '내 용액' : '표준'}</span></div><div class="rs">${esc(sub)}</div>${bars}</div>`;
+  const concText = (e, k = 1) => !e ? '–' : e.sat ? `≥${fmt(e.c * k, 3)}` : (e.weak ? '약 ' : '') + fmt(e.c * k, e.weak ? 2 : 3);
+  const dilK = () => { const d = parseFloat(state.dil); return isFinite(d) && d > 0 ? d : 1; };      /* 희석 배수: 묽혀서 잰 용액의 원래 농도 = 추정 농도 × 배수 */
+  function card(title, sub, rgb, cls, idx, x) {
+    const bars = ['R', 'G', 'B'].map((n, j) => `<div class="rb"><b>${n}</b><span class="bar"><i class="b${n}" style="width:${clamp(rgb[j] / 255 * 100, 0, 100).toFixed(1)}%"></i></span><span class="num">${Math.round(rgb[j])}</span></div>`).join('');
+    return `<div class="rgbcard ${cls}"${idx != null ? ` data-card="${idx}"` : ''} data-x="${x.toFixed(2)}"><div class="rt">${swatch(rgb)}<span class="nmx">${esc(title)}</span></div><div class="rs">${esc(sub)}</div>${bars}</div>`;
   }
   function renderPanel() {
-    const ch = state.channel, st = state.standards.filter(s => Array.isArray(s.rgb)), u = state.unit;
+    const ch = state.channel, st = state.standards.filter(s => Array.isArray(s.rgb)), u = state.unit, k = dilK();
     const pick = f => st.length ? st.reduce((a, b) => f(b) < f(a) ? b : a) : null;
     const lemon = pick(s => s.conc), navy = pick(s => Math.abs(s.A[ch] - 1.5)), black = pick(s => -s.A[ch]);
-    const std = s => s ? `표준 ${tickLabel(s.conc)} ${u}` : '표준 없음';
     const guides = [], seen = new Set();
     for (const [name, s] of [['레몬색', lemon], ['남색', navy], ['검정', black]]) if (s && !seen.has(s)) { seen.add(s); guides.push({ name, s, a: s.A[ch] }); }
     const aOf = i => i === refIdx ? 0 : rows[i].A ? rows[i].A[ch] : NaN;
 
-    /* 눈금선: 왼쪽 레몬색(녹말 적음)에서 오른쪽 검정(녹말 많음)까지 한 줄. 표준은 아래 눈금, 내 용액은 선 위의 번호 점 */
+    /* 색 띠: 왼쪽 레몬색(녹말 적음)에서 오른쪽 검정(녹말 많음)까지 한 줄. 표준은 띠 아래 눈금, 내 용액은 띠 위의 번호 점 */
     const lo = guides.length ? guides[0].a : 0, hi = guides.length ? Math.max(guides[guides.length - 1].a, lo + 0.1) : 1;
     const pos = a => clamp((a - lo) / (hi - lo), 0, 1) * 100;
     const css = rgb => `rgb(${rgb.map(v => clamp(Math.round(+v) || 0, 0, 255)).join(',')})`;
     const grad = guides.length > 1 ? `linear-gradient(to right, ${guides.map(g => `${css(g.s.rgb)} ${pos(g.a).toFixed(1)}%`).join(', ')})` : 'var(--line)';
     const dots = rows.map((r, i) => {
       const a = aOf(i); if (!isFinite(a)) return '';
-      const rgb = rgbOf(r.s), dark = rgb[0] * 0.3 + rgb[1] * 0.6 + rgb[2] * 0.1 < 130, nm = regions[i].name || `${i + 1}번`;
-      return `<button type="button" class="dot${i === selIdx ? ' sel' : ''}" data-card="${i}" title="${esc(nm)}" aria-label="${esc(nm)}" style="left:${pos(a).toFixed(1)}%;background:${css(rgb)};color:${dark ? '#fff' : '#111'}">${i + 1}${i === selIdx ? `<span class="dl">${esc(nm)}</span>` : ''}</button>`;
+      const rgb = rgbOf(r.s), dark = rgb[0] * 0.3 + rgb[1] * 0.6 + rgb[2] * 0.1 < 130, nm = regions[i].name;
+      return `<button type="button" class="dot${i === selIdx ? ' sel' : ''}" data-card="${i}" title="${esc(nm || `${i + 1}번`)}" aria-label="${esc(nm || `${i + 1}번`)}" style="left:${pos(a).toFixed(1)}%;background:${css(rgb)};color:${dark ? '#fff' : '#111'}">${i + 1}${nm ? `<span class="dl">${esc(nm)}</span>` : ''}</button>`;
     }).join('');
-    const ticks = guides.map((g, j) => `<span class="tick${j === 0 ? ' first' : j === guides.length - 1 ? ' last' : ''}" style="left:${pos(g.a).toFixed(1)}%"><b>${g.name}</b>${esc(std(g.s))}</span>`).join('');
-    $('scale').innerHTML = `<div class="ends"><span>녹말 적음</span><i class="arrow"></i><span>녹말 많음</span></div><div class="track" style="background:${grad}">${dots}</div><div class="ticks">${ticks}</div>`;
+    const ticks = guides.map(g => `<i class="gt" style="left:${pos(g.a).toFixed(1)}%"></i>`).join('');
+    $('scale').innerHTML = `<div class="ends"><span>녹말 적음</span><i class="arrow"></i><span>녹말 많음</span></div><div class="track" style="background:${grad}">${ticks}${dots}</div>`;
 
-    /* 아래 칸: 표준 세 가지와 고른 용액 하나의 R·G·B 값 */
-    const items = guides.map(g => ({ a: g.a, g: 1, html: card(g.name, std(g.s), g.s.rgb, 'guide') }));
-    const r = rows[selIdx];
-    if (r) {
-      const sub = selIdx === refIdx ? '이 사진의 기준' : `흡광도 ${r.A ? fmt(r.A[ch], 3) : '–'} · ${r.e ? concText(r.e) + ' ' + u : '–'}`;
-      items.push({ a: isFinite(aOf(selIdx)) ? aOf(selIdx) : Infinity, g: 0, html: card(regions[selIdx].name || `${selIdx + 1}번`, sub, rgbOf(r.s), 'me sel') });
-    }
+    /* 아래 칸: 표준 세 가지와 사진에서 누른 모든 용액의 R·G·B 값. 옅은 것부터 진한 순서이고, 점선으로 띠 위의 자리와 이어진다 */
+    const items = guides.map(g => ({ a: g.a, g: 1, html: card(g.name, `표준 ${tickLabel(g.s.conc)} ${u}`, g.s.rgb, 'guide', null, pos(g.a)) }));
+    rows.forEach((r, i) => {
+      const a = aOf(i); if (!isFinite(a)) return;
+      const sub = i === refIdx ? '기준' : r.e ? `${concText(r.e, k)} ${u}` : '–';
+      items.push({ a, g: 0, html: card(regions[i].name || `${i + 1}번`, sub, rgbOf(r.s), 'me' + (i === selIdx ? ' sel' : ''), i, pos(a)) });
+    });
     items.sort((p, q) => p.a - q.a || q.g - p.g);
     $('rgbPanel').innerHTML = items.map(t => t.html).join('');
+    drawLinks();
+  }
+  function drawLinks() {        /* 띠 위의 자리와 아래 칸을 점선으로 잇는다 */
+    const svg = $('links'), track = document.querySelector('#scale .track');
+    if (!track) { svg.innerHTML = ''; return; }
+    const sb = svg.getBoundingClientRect(), tb = track.getBoundingClientRect(), H = sb.height;
+    if (!sb.width || !H) return;
+    svg.setAttribute('viewBox', `0 0 ${sb.width.toFixed(1)} ${H.toFixed(1)}`);
+    svg.innerHTML = [...$('rgbPanel').children].map(c => {
+      const cb = c.getBoundingClientRect(), x2 = cb.left + cb.width / 2 - sb.left;
+      if (x2 < 0 || x2 > sb.width) return '';     /* 옆으로 넘겨서 안 보이는 칸 */
+      const x1 = tb.left + tb.width * (+c.dataset.x) / 100 - sb.left;
+      return `<path class="${c.classList.contains('sel') ? 'sel' : c.classList.contains('me') ? 'me' : ''}" d="M${x1.toFixed(1)} 0L${x2.toFixed(1)} ${H.toFixed(1)}"/>`;
+    }).join('');
   }
   function applySel() {
     [...$('marks').children].forEach((el, i) => el.classList.toggle('sel', i === selIdx));
@@ -622,16 +656,16 @@ ul.tips { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 13.5px
   function render() {
     const M = model(), ch = state.channel, u = state.unit;
     const refIn = regions[refIdx] ? readROI(regions[refIdx]) : null, ref = refIn || storedRef();      /* 사진 속 기준이 없으면 저장된 기준 색 */
-    const c0 = parseFloat(state.c0), useC0 = isFinite(c0) && c0 > 0;
-    rows = regions.map((r, i) => {
+    const c0 = parseFloat(state.c0), useC0 = isFinite(c0) && c0 > 0, k = dilK();
+    rows =regions.map((r, i) => {
       const s = readROI(r), A = ref ? absOf(s, ref) : null;
       return { s, A, e: A && M && i !== refIdx ? M.est(A) : null };
     });
-    $('resHead').innerHTML = `<tr><th>번호</th><th class="l">이름</th><th>색</th><th>흡광도</th><th>녹말 농도 (${esc(u)})</th>${useC0 ? '<th>분해율 (%)</th>' : ''}<th></th></tr>`;
+    $('resHead').innerHTML = `<tr><th>번호</th><th class="l">이름</th><th>색</th><th>흡광도</th><th>${k !== 1 ? '희석 전 ' : ''}녹말 농도 (${esc(u)})</th>${useC0 ? '<th>분해율 (%)</th>' : ''}<th></th></tr>`;
     $('resBody').innerHTML = regions.length ? rows.map((r, i) => {
       const isRef = i === refIdx, flag = Math.abs(r.s.edge) > 0.12 ? '*' : '';
-      const conc = isRef ? '기준 (0)' : concText(r.e) + (r.e && !r.e.sat ? flag : '');
-      const deg = isRef || !r.e || r.e.sat ? '–' : fmt((1 - r.e.c / c0) * 100, 1);
+      const conc = isRef ? '기준 (0)' : concText(r.e, k) + (r.e && !r.e.sat ? flag : '');
+      const deg = isRef || !r.e || r.e.sat ? '–' : fmt((1 - r.e.c * k / c0) * 100, 1);
       return `<tr data-row="${i}"><td class="n">${i + 1}</td><td class="l"><input class="nm" data-nm="${i}" type="text" maxlength="16" value="${esc(regions[i].name)}" placeholder="이름" aria-label="${i + 1}번 이름"></td><td>${swatch(rgbOf(r.s))}</td><td class="n">${r.A ? fmt(r.A[ch], 3) : '–'}</td><td class="big">${conc}</td>${useC0 ? `<td class="n">${deg}</td>` : ''}<td>${isRef ? `<button class="small" type="button" data-unref="${i}">기준 해제</button> ` : `<button class="small" type="button" data-ref="${i}">기준으로</button> `}<button class="small" type="button" data-rm="${i}">빼기</button></td></tr>`;
     }).join('') : `<tr><td class="empty" colspan="${useC0 ? 7 : 6}">왼쪽 사진에서 재려는 용액을 누르면 여기에 결과가 나옵니다.</td></tr>`;
     const m = $('msgRes'); m.className = 'msg';
@@ -664,7 +698,7 @@ ul.tips { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 13.5px
     L.push(`번호\t이름\t흡광도(${CHNAME[c]})\t녹말 농도(${u})\t분해율(%)\tR\tG\tB`);
     rows.forEach((r, i) => {
       const isRef = i === refIdx, k = r.e && !r.e.sat ? r.e.c : NaN;
-      L.push([i + 1, (regions[i].name || '').replace(/\t/g, ' '), r.A ? fmt(r.A[c], 4) : '', isRef ? '기준' : concText(r.e), isFinite(k) && c0 > 0 ? fmt((1 - k / c0) * 100, 2) : '', ...rgbOf(r.s)].join('\t'));
+      L.push([i + 1, (regions[i].name || '').replace(/\t/g, ' '), r.A ? fmt(r.A[c], 4) : '', isRef ? '기준' : concText(r.e, dilK()), isFinite(k) && c0 > 0 ? fmt((1 - k * dilK() / c0) * 100, 2) : '', ...rgbOf(r.s)].join('\t'));
     });
     L.push('', `표준 색상 (${CHNAME[c]} 채널)`, `농도(${u})\t흡광도`);
     for (const s of state.standards) L.push(`${s.conc}\t${fmt(s.A[c], 4)}`);
@@ -745,6 +779,10 @@ ul.tips { margin: 0; padding-left: 1.2em; color: var(--muted); font-size: 13.5px
     }
   });
 
+  $('dil').value = state.dil;
+  $('dil').addEventListener('input', e => { state.dil = e.target.value; render(); });
+  $('rgbPanel').addEventListener('scroll', drawLinks);
+  window.addEventListener('resize', drawLinks);
   $('c0').value = state.c0;
   $('c0').addEventListener('input', e => { state.c0 = e.target.value; render(); });
   $('unit').value = state.unit;
