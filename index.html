@@ -3,10 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
 <title>RGB 모의 분광광도계</title>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Do+Hyeon&family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+KR:wght@400;500;700&display=swap">
 <style>
-/* 레이아웃: 넓은 화면에서는 왼쪽에 사진, 오른쪽에 결과 표와 검정곡선이 한 화면에 보인다. 좁으면 한 열로 쌓인다. */
+/* 레이아웃: 넓은 화면에서는 왼쪽에 사진, 오른쪽에 그래프와 색 비교가 보인다. 좁으면 한 열로 쌓인다. 기기가 어두운 모드여도 항상 밝은 색 하나로 보인다. */
 :root {
   --bg: #F4F3FA;
   --surface: #FFFFFF;
@@ -29,24 +30,7 @@
   --font-body: "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
   --font-display: "Do Hyeon", "Noto Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
   --font-num: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Consolas, monospace;
-}
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --bg: #111024; --surface: #1B1A34; --ink: #ECEBFA; --muted: #A5A4C4; --line: #34335A;
-    --accent: #948CFF; --accent-ink: #111024; --amber: #E8AD3F; --warn: #FF8A80;
-    --stage: #07060F; --stage-ink: #FFFFFF; --roi-ref: #FFC24A;
-    --sel: #2B2955; --ch-r: #FF7A72; --ch-g: #5FCB86; --ch-b: #7FA2FF;
-    --hl: #6A5600; --card-line: #34335A; --shadow: none; --btn-shadow: none;
-    color-scheme: dark;
-  }
-}
-:root[data-theme="dark"] {
-  --bg: #111024; --surface: #1B1A34; --ink: #ECEBFA; --muted: #A5A4C4; --line: #34335A;
-  --accent: #948CFF; --accent-ink: #111024; --amber: #E8AD3F; --warn: #FF8A80;
-  --stage: #07060F; --stage-ink: #FFFFFF; --roi-ref: #FFC24A;
-    --sel: #2B2955; --ch-r: #FF7A72; --ch-g: #5FCB86; --ch-b: #7FA2FF;
-    --hl: #6A5600; --card-line: #34335A; --shadow: none; --btn-shadow: none;
-  color-scheme: dark;
+  color-scheme: light;
 }
 * { box-sizing: border-box; }
 [hidden] { display: none !important; }
